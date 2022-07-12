@@ -1,12 +1,25 @@
 import type { NextPage } from 'next'
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import dynamic from "next/dynamic";
+
+const LazyMPFaceMesh = dynamic(
+  () => import("@/mediapipe_test"),
+  {
+    ssr: false,
+  }
+);
 
 const Home: NextPage = () => {
   return (
     <div>
-      asdf
+      <LazyMPFaceMesh 
+        options={ {
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          enableFaceGeometry: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        }}
+      />
     </div>
   )
 }
