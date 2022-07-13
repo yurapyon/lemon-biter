@@ -12,7 +12,7 @@ const Home: NextPage = () => {
   return (
     <div>
       <LazyMPFaceMesh 
-        options={ {
+        options={{
           maxNumFaces: 1,
           refineLandmarks: true,
           enableFaceGeometry: false,

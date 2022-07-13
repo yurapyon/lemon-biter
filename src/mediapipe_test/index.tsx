@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Webcam from "react-webcam";
 import {
   FaceMesh,
@@ -21,15 +21,16 @@ import { Camera } from "@mediapipe/camera_utils";
 const MPFaceMesh: React.FC<{options: Options}> = (props) => {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const faceMeshRef = useRef<FaceMesh>();
+
+  const [out, setOut] = useState<any>(0);
 
   useEffect(() => {
     const faceMesh = new FaceMesh({
       locateFile: (file) => {
-        console.log(`${file}`);
         return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${VERSION}/${file}`;
       },
     });
-    faceMesh.setOptions(props.options);
     faceMesh.onResults(onResults);
 
     if (webcamRef?.current?.video) {
@@ -44,12 +45,19 @@ const MPFaceMesh: React.FC<{options: Options}> = (props) => {
       });
       camera.start();
     }
+
+    faceMeshRef.current = faceMesh;
+  }, []);
+
+  useEffect(()=>{
+    faceMeshRef.current?.setOptions(props.options);
   }, [props.options]);
 
   const onResults = (results: Results) => {
     if (!(canvasRef?.current && webcamRef?.current?.video)) {
       return;
     }
+
     const videoWidth = webcamRef.current.video.videoWidth;
     const videoHeight = webcamRef.current.video.videoHeight;
     canvasRef.current.width = videoWidth;
@@ -68,8 +76,8 @@ const MPFaceMesh: React.FC<{options: Options}> = (props) => {
       canvasElement.width,
       canvasElement.height
     );
+
     if (results.multiFaceLandmarks) {
-      console.log('Found face');
       for (const landmarks of results.multiFaceLandmarks) {
         drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {
           color: "#C0C0C070",
@@ -99,6 +107,7 @@ const MPFaceMesh: React.FC<{options: Options}> = (props) => {
         drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_IRIS, {
           color: "#30FF30",
         });
+        setOut(landmarks.at(0));
       }
     }
     canvasCtx.restore();
