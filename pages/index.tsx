@@ -1,7 +1,9 @@
-import useFaceMesh from '@/face_mesh';
+import useFaceMeshLandmarks from '@/face_mesh';
 import type { NextPage } from 'next'
 import dynamic from "next/dynamic";
 import Webcam from 'react-webcam';
+import * as Kalidokit from 'kalidokit';
+import { useState } from 'react';
 
 /*
 const LazyMPFaceMesh = dynamic(
@@ -9,10 +11,19 @@ const LazyMPFaceMesh = dynamic(
     ssr: false
   }
 );
+
+          setFace(
+            Kalidokit.Face.solve(landmarks, {
+            runtime: "mediapipe",
+            video: webcamRef.current.video,
+            // imageSize: { width: WEBCAM_WIDTH, height: WEBCAM_HEIGHT, },
+          }));
 */
 
 const Home: NextPage = () => {
-  const { webcamRef, face } = useFaceMesh({
+  const [face, setFace] = useState<Kalidokit.Face>();
+
+  const { webcamRef, landmarks } = useFaceMeshLandmarks({
       maxNumFaces: 1,
       refineLandmarks: true,
       enableFaceGeometry: false,
@@ -20,6 +31,15 @@ const Home: NextPage = () => {
       minTrackingConfidence: 0.5,
     }
   );
+
+  if(webcamRef.current?.video && landmarks) {
+    setFace(Kalidokit.Face.solve(landmarks, {
+      runtime: "mediapipe",
+      video: webcamRef.current.video,
+      // imageSize: { width: WEBCAM_WIDTH, height: WEBCAM_HEIGHT, },
+    }));
+  }
+  
   console.log(face);
 
   return (
