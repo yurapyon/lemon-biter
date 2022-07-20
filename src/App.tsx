@@ -2,13 +2,13 @@ import './App.css';
 import useFaceMesh from './face_mesh/useFaceMesh';
 import Webcam from 'react-webcam';
 import { useEffect, useRef, useState } from 'react';
-import { Canvas, MeshProps, useFrame } from '@react-three/fiber';
+import { Canvas, MeshProps } from '@react-three/fiber';
 import * as Kalidokit from "kalidokit";
-import { FACEMESH_LEFT_IRIS } from '@mediapipe/face_mesh';
 
 // TODO alert on face not detected
 //      device picker
 
+/*
 function Box(props: any) {
   // This reference will give us direct access to the mesh
   const mesh = useRef<MeshProps>(null);
@@ -37,12 +37,13 @@ function Box(props: any) {
     </mesh>
   )
 }
+*/
 
-const FBox: React.FC<{face: Kalidokit.TFace | undefined, offset: Kalidokit.XYZ | undefined}> = (props) => {
+const FBox: React.FC<{face: Kalidokit.TFace, offset: Kalidokit.XYZ | undefined}> = (props) => {
   const mesh = useRef<MeshProps>(null);
 
   useEffect(() => {
-    if (!mesh.current || !props.face) return;
+    if (!mesh.current) return;
 
     mesh.current.rotation.x = props.face.head.normalized.x * -2;
     mesh.current.rotation.y = props.face.head.normalized.y * 2;
@@ -51,8 +52,6 @@ const FBox: React.FC<{face: Kalidokit.TFace | undefined, offset: Kalidokit.XYZ |
     mesh.current.position.y = (props.face.head.position.y - (props.offset?.y ?? 0)) * -0.007
     mesh.current.position.z = (props.face.head.position.z - (props.offset?.z ?? 0)) * 0.025
   }, [mesh, props.face, props.offset]);
-
-  if (!props.face) return null;
 
   // Return view, these are regular three.js elements expressed in JSX
   return (
@@ -63,7 +62,7 @@ const FBox: React.FC<{face: Kalidokit.TFace | undefined, offset: Kalidokit.XYZ |
 }
 
 function App() {
-  const { webcamRef, face } = useFaceMesh({
+  const { webcamRef, face, } = useFaceMesh({
       maxNumFaces: 1,
       refineLandmarks: true,
       // TODO what does this do
@@ -72,7 +71,6 @@ function App() {
       minTrackingConfidence: 0.7,
     }
   );
-
   const [offset, setOffset] = useState<Kalidokit.XYZ>();
 
   return (
@@ -87,7 +85,6 @@ function App() {
       <div>
         <button onClick={()=>{
           setOffset(face?.head.position);
-          console.log(offset);
         }}>setOffset</button>
       </div>
       <div>

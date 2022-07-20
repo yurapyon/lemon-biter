@@ -7,10 +7,28 @@ import Webcam from 'react-webcam';
 const WEBCAM_WIDTH = 1280;
 const WEBCAM_HEIGHT = 720;
 
+const restingTFace: Kalidokit.TFace = {
+  ...Kalidokit.Utils.RestingDefault.Face,
+  head: {
+    ...Kalidokit.Utils.RestingDefault.Face.head,
+    normalized: {
+      x: 0,
+      y: 0,
+      z: 0,
+    },
+    degrees: {
+      x: 0,
+      y: 0,
+      z: 0,
+    }
+  }
+ } ;
+
 const useFaceMesh = (options: FaceMesh.Options) => {
   const webcamRef = useRef<Webcam>(null);
   const faceMeshRef = useRef<FaceMesh.FaceMesh>();
-  const [face, setFace] = useState<Kalidokit.TFace>();
+  const [faceFound, setFaceFound] = useState(false);
+  const [face, setFace] = useState<Kalidokit.TFace>(restingTFace);
 
   const onResults = (results: FaceMesh.Results) => {
     if (!webcamRef?.current) {
@@ -18,12 +36,13 @@ const useFaceMesh = (options: FaceMesh.Options) => {
     }
 
     if (results.multiFaceLandmarks) {
+      setFaceFound(results.multiFaceLandmarks.length !== 0);
       for (const landmarks of results.multiFaceLandmarks) {
         setFace(Kalidokit.Face.solve(landmarks, {
           runtime: "mediapipe",
           video: webcamRef.current.video,
           // imageSize: { width: WEBCAM_WIDTH, height: WEBCAM_HEIGHT, },
-        }));
+        }) ?? restingTFace);
       }
     }
   };
@@ -58,6 +77,7 @@ const useFaceMesh = (options: FaceMesh.Options) => {
 
   return {
     webcamRef,
+    faceFound,
     face
   };
 };
