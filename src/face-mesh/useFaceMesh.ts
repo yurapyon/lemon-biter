@@ -61,6 +61,7 @@ const useFaceMesh = (options: FaceMesh.Options) => {
       const camera = new Camera(webcamRef.current.video, {
         onFrame: async () => {
           if (webcamRef.current?.video) {
+            // TODO leaks
             await faceMesh.send({ image: webcamRef.current.video });
           }
         },
