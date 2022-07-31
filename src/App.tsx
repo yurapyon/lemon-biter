@@ -14,90 +14,11 @@ import {
   SkinnedMesh,
   TextureLoader,
 } from "three";
-import { loadRoom } from "./three";
-import * as rooms from "./three";
 import { clamp } from "three/src/math/MathUtils";
 import { Stats } from "@react-three/drei";
 
 // TODO alert on face not detected
 //      device picker
-
-/*
-function Box(props: any) {
-  // This reference will give us direct access to the mesh
-  const mesh = useRef<MeshProps>(null);
-
-  // Set up state for the hovered and active state
-  const [hovered, setHover] = useState(false);
-  const [active, setActive] = useState(false);
-
-  // Subscribe this component to the render-loop, rotate the mesh every frame
-  useFrame((state, delta) =>  {
-    if (!mesh.current) return;
-    mesh.current.rotation.x += 0.01
-  });
-
-  // Return view, these are regular three.js elements expressed in JSX
-  return (
-    <mesh
-      {...props}
-      ref={mesh}
-      scale={active ? 1.5 : 1}
-      onClick={(event) => setActive(!active)}
-      onPointerOver={(event) => setHover(true)}
-      onPointerOut={(event) => setHover(false)}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={hovered ? 'hotpink' : 'orange'} />
-    </mesh>
-  )
-}
-*/
-
-/*
-const FBox: React.FC<{
-  face: Kalidokit.TFace;
-  offset: Kalidokit.XYZ | undefined;
-}> = (props) => {
-  const mesh = useRef<MeshProps>(null);
-
-  useEffect(() => {
-    if (!mesh.current) return;
-
-    mesh.current.rotation.x = props.face.head.normalized.x * -2;
-    mesh.current.rotation.y = props.face.head.normalized.y * 2;
-    mesh.current.rotation.z = props.face.head.normalized.z * -2;
-    mesh.current.position.x =
-      (props.face.head.position.x - (props.offset?.x ?? 0)) * -0.007;
-    mesh.current.position.y =
-      (props.face.head.position.y - (props.offset?.y ?? 0)) * -0.007;
-    mesh.current.position.z =
-      (props.face.head.position.z - (props.offset?.z ?? 0)) * 0.025;
-  }, [mesh, props.face, props.offset]);
-
-  // Return view, these are regular three.js elements expressed in JSX
-  return (
-    <mesh ref={mesh}>
-      <boxGeometry args={[3, 3, 3]} />
-    </mesh>
-  );
-};
-
-const RenderToTexture: React.FC<{
-  targetRef: MutableRefObject<WebGLRenderTarget>;
-}> = (props) => {
-  const ctx = useThree();
-
-  useFrame(() => {
-    if (!props.targetRef.current) return;
-    const target = props.targetRef.current;
-    ctx.gl.setRenderTarget(target);
-    ctx.gl.render(ctx.scene, ctx.camera);
-  });
-
-  return null;
-};
-
-*/
 
 const vertShader = `
 #include <common>
@@ -212,6 +133,7 @@ void main() {
 `;
 
 /*
+// TODO make work
 const FacePreview: React.FC<{
   face: Kalidokit.TFace;
   pupilOffset: { x: number; y: number };
@@ -260,29 +182,6 @@ const FacePreview: React.FC<{
   );
 };
 */
-
-const useRoom = () => {
-  const [initialized, setInitialized] = useState(false);
-  const [roomLoaded, setRoomLoaded] = useState(false);
-
-  const canv = useRef<HTMLCanvasElement | null>(null);
-
-  useEffect(() => {
-    if (initialized) return;
-    rooms.init({ width: 400, height: 300 });
-    canv.current = rooms.renderer.domElement;
-    setInitialized(true);
-  });
-
-  useEffect(() => {
-    if (roomLoaded) return;
-    loadRoom("src/assets/bites/vtuber_in_room_Real_joined.glb", () => {
-      setRoomLoaded(true);
-    });
-  });
-
-  return { canv, initialized, roomLoaded };
-};
 
 const useAverage = (count: number) => {
   const ref = useRef<number[]>([]);
@@ -505,24 +404,6 @@ const Room: React.FC<{
   );
 };
 
-const HeadAnim: React.FC<{ face: Kalidokit.TFace; roomLoaded: boolean }> = ({
-  face,
-  roomLoaded,
-}) => {
-  useFrame(() => {
-    if (roomLoaded && rooms.chara) {
-      const head = rooms.chara.getObjectByName("head");
-      if (head) {
-        head.rotation.x = -face.head.normalized.x * 2;
-        head.rotation.y = face.head.normalized.y * 2;
-        head.rotation.z = -face.head.normalized.z * 2;
-      }
-    }
-  });
-
-  return null;
-};
-
 function App() {
   const { webcamRef, face } = useFaceMesh({
     maxNumFaces: 1,
@@ -538,45 +419,6 @@ function App() {
     y: 0,
     z: 0,
   });
-
-  // const { canv, roomLoaded } = useRoom();
-
-  // if (roomLoaded) {
-  // console.log(rooms.room);
-  // console.log(rooms.chara);
-  // console.log(rooms.face);
-  // }
-
-  /*
-  const [time, setTime] = useState(0);
-  const [eyeSin, setEyeSin] = useState(0);
-  useFrame((_state, delta) => {
-    setTime(time + delta);
-    setEyeSin(Math.sin(time));
-  });
-  */
-
-  // TODO make sure ortho cam position is right
-
-  /*
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log("This will be called every 2 seconds");
-    }, 200);
-
-    return () => clearInterval(interval);
-  }, []);
-
-      {canv.current && (
-        <canvas ref={canv} style={{ width: 400, height: 300 }} />
-      )}
-
-      <div style={{ width: 128, height: 128 }}>
-        <Canvas camera={{ position: [0, 0, 1] }} orthographic={true}>
-          <FacePreview face={face} pupilOffset={offset} />
-        </Canvas>
-      </div>
-  */
 
   return (
     <div className="App">
