@@ -24,11 +24,21 @@ const restingTFace: Kalidokit.TFace = {
   },
 };
 
+type FaceMeshData = {
+  mpFaceMesh: FaceMesh.FaceMesh | null;
+  kalidokitFace: Kalidokit.TFace;
+  faceFound: boolean;
+};
+
 const useFaceMesh = (options: FaceMesh.Options) => {
   const webcamRef = useRef<Webcam>(null);
-  const faceMeshRef = useRef<FaceMesh.FaceMesh>();
-  const [faceFound, setFaceFound] = useState(false);
-  const [face, setFace] = useState<Kalidokit.TFace>(restingTFace);
+  const faceRef = useRef<Kalidokit.TFace>(restingTFace);
+
+  const data = useRef<FaceMeshData>({
+    mpFaceMesh: null,
+    faceFound: false,
+    kalidokitFace: restingTFace,
+  });
 
   const onResults = (results: FaceMesh.Results) => {
     if (!webcamRef?.current) {
@@ -36,20 +46,21 @@ const useFaceMesh = (options: FaceMesh.Options) => {
     }
 
     if (results.multiFaceLandmarks) {
-      setFaceFound(results.multiFaceLandmarks.length !== 0);
+      data.current.faceFound = results.multiFaceLandmarks.length !== 0;
       for (const landmarks of results.multiFaceLandmarks) {
-        setFace(
+        faceRef.current =
           Kalidokit.Face.solve(landmarks, {
             runtime: "mediapipe",
             video: webcamRef.current.video,
             // imageSize: { width: WEBCAM_WIDTH, height: WEBCAM_HEIGHT, },
-          }) ?? restingTFace
-        );
+          }) ?? restingTFace;
       }
     }
   };
 
   useEffect(() => {
+    if (data.current.mpFaceMesh !== null) return;
+
     const faceMesh = new FaceMesh.FaceMesh({
       locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${FaceMesh.VERSION}/${file}`;
@@ -57,31 +68,33 @@ const useFaceMesh = (options: FaceMesh.Options) => {
     });
     faceMesh.onResults(onResults);
 
-    if (webcamRef.current?.video) {
-      const camera = new Camera(webcamRef.current.video, {
-        onFrame: async () => {
-          if (webcamRef.current?.video) {
-            // TODO leaks
-            await faceMesh.send({ image: webcamRef.current.video });
-          }
-        },
-        width: WEBCAM_WIDTH,
-        height: WEBCAM_HEIGHT,
-      });
-      camera.start();
+    if (!webcamRef.current?.video) {
+      throw "no video";
     }
 
-    faceMeshRef.current = faceMesh;
+    const camera = new Camera(webcamRef.current.video, {
+      onFrame: async () => {
+        if (webcamRef.current?.video) {
+          // TODO leaks
+          await faceMesh.send({ image: webcamRef.current.video });
+        }
+      },
+      width: WEBCAM_WIDTH,
+      height: WEBCAM_HEIGHT,
+    });
+
+    data.current.mpFaceMesh = faceMesh;
+    camera.start();
   }, [webcamRef]);
 
   useEffect(() => {
-    faceMeshRef.current?.setOptions(options);
+    data.current.mpFaceMesh?.setOptions(options);
   }, [options]);
 
   return {
     webcamRef,
-    faceFound,
-    face,
+    faceRef: faceRef,
+    faceFound: data.current.faceFound,
   };
 };
 

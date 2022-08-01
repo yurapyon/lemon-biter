@@ -1,10 +1,18 @@
 import "./App.css";
 import useFaceMesh from "./face-mesh/useFaceMesh";
 import Webcam from "react-webcam";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  Ref,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import * as Kalidokit from "kalidokit";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import {
   Mesh,
   NearestFilter,
@@ -12,10 +20,12 @@ import {
   ShaderMaterial,
   Skeleton,
   SkinnedMesh,
+  Texture,
   TextureLoader,
 } from "three";
 import { clamp } from "three/src/math/MathUtils";
 import { Stats } from "@react-three/drei";
+import { useFilePicker } from "use-file-picker";
 
 // TODO alert on face not detected
 //      device picker
@@ -206,36 +216,43 @@ const useAverage = (count: number) => {
 };
 
 const Room: React.FC<{
-  face: Kalidokit.TFace;
+  gltfFile: string;
+  faceFile: string;
+  faceRef: MutableRefObject<Kalidokit.TFace>;
   pupilOffset: { x: number; y: number };
   headOffset: { x: number; y: number; z: number };
-}> = ({ face, pupilOffset, headOffset }) => {
-  const gltf = useLoader(
-    GLTFLoader,
-    "src/assets/bites/vtuber_in_room_Real_joined.glb"
-  );
+}> = ({ gltfFile, faceFile, faceRef, pupilOffset, headOffset }) => {
+  const [gltf, setGltf] = useState<GLTF>();
+  useEffect(() => {
+    new GLTFLoader().parse(gltfFile, "/", setGltf);
+  }, [gltfFile]);
 
   const [done, setDone] = useState(false);
   const skel = useRef<Skeleton | null>(null);
 
-  const face_tex = useLoader(TextureLoader, "src/assets/bites/face.png");
+  // const face_tex = useLoader(TextureLoader, faceFile);
+  const [faceTex, setFaceTex] = useState<Texture>();
+  useEffect(() => {
+    new TextureLoader().load(faceFile, setFaceTex);
+  }, [faceFile]);
 
   const uniforms = useMemo(() => {
     return {
-      tex: { value: face_tex },
+      tex: { value: faceTex },
       tex_dimensions: {
-        value: [face_tex.image.width, face_tex.image.height],
+        value: [faceTex?.image.width, faceTex?.image.height],
       },
       eye_offset: { value: [0, 0] },
       blink_frame: { value: 0 },
       mouth_frame: { value: 0 },
     };
-  }, []);
+  }, [faceTex]);
 
   useEffect(() => {
-    face_tex.magFilter = NearestFilter;
-    face_tex.minFilter = NearestFilter;
-  }, [face_tex]);
+    if (!faceTex) return;
+    faceTex.magFilter = NearestFilter;
+    faceTex.minFilter = NearestFilter;
+  }, [faceTex]);
 
   // const eye_avg = useRef<{ x: number; y: number }[]>([]);
   const { getValue: getPXA, pushOne: pushPXA } = useAverage(4);
@@ -258,6 +275,10 @@ const Room: React.FC<{
   const { getValue: getMouthA, pushOne: pushMouthA } = useAverage(6);
 
   useFrame((state) => {
+    if (!done) return;
+    if (!gltf) return;
+
+    const face = faceRef.current;
     pushPXA(clamp(face.pupil.x, -1, 1));
     pushPYA(clamp(face.pupil.y, -1, 1));
 
@@ -266,10 +287,10 @@ const Room: React.FC<{
     ).uniforms;
     uniforms.eye_offset.value = [
       (getPXA() - pupilOffset.x) * -5,
-      (getPYA() - pupilOffset.y + 0.1) * 5,
+      (getPYA() - pupilOffset.y + 0.2) * 5,
     ];
     pushBlinkA(face.eye.l);
-    uniforms.blink_frame.value = getBlinkA() > 0.5 ? 0 : 1;
+    uniforms.blink_frame.value = getBlinkA() > 0.4 ? 0 : 1;
     pushMouthA(face.mouth.y);
     uniforms.mouth_frame.value = getMouthA() < 0.2 ? 0 : 1;
 
@@ -343,8 +364,10 @@ const Room: React.FC<{
 
   useEffect(() => {
     if (done) return;
+    if (!gltf) return;
+    if (!faceTex) return;
 
-    face_tex.flipY = false;
+    faceTex.flipY = false;
     const faceMatl = new ShaderMaterial({
       uniforms: uniforms,
       fragmentShader: fragShader,
@@ -358,6 +381,9 @@ const Room: React.FC<{
 
     gltf.scene.add(newFace);
     gltf.scene.remove(oldFace);
+
+    const room = gltf.scene.getObjectByName("room_parent");
+    if (room) gltf.scene.remove(room);
 
     skel.current = newFace.skeleton;
 
@@ -397,6 +423,10 @@ const Room: React.FC<{
     setDone(true);
   }, [gltf]);
 
+  if (!gltf) {
+    return null;
+  }
+
   return (
     <mesh>
       <primitive object={gltf.scene} />
@@ -405,7 +435,7 @@ const Room: React.FC<{
 };
 
 function App() {
-  const { webcamRef, face } = useFaceMesh({
+  const { webcamRef, faceRef } = useFaceMesh({
     maxNumFaces: 1,
     refineLandmarks: true,
     // TODO what does this do
@@ -420,6 +450,38 @@ function App() {
     z: 0,
   });
 
+  const [deviceId, setDeviceId] = useState({});
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+
+  const handleDevices = useCallback(
+    (mediaDevices: MediaDeviceInfo[]) =>
+      setDevices(mediaDevices.filter(({ kind }) => kind === "videoinput")),
+    [setDevices]
+  );
+
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then(handleDevices);
+  }, [handleDevices]);
+
+  const [openFileSelector, { filesContent }] = useFilePicker({
+    accept: [".gltf", ".glb"],
+    // readFilesContent: false,
+    readAs: "ArrayBuffer",
+  });
+
+  const [openTextureSelector, { filesContent: textureContent }] = useFilePicker(
+    {
+      accept: [".png"],
+      readAs: "DataURL",
+    }
+  );
+
+  // if (loading) {
+  // return <div>loading...</div>;
+  // }
+
+  // "src/assets/bites/vtuber_in_room_Real_joined.glb"
+
   return (
     <div className="App">
       <div style={{ width: 1280, height: 720 }}>
@@ -433,24 +495,62 @@ function App() {
           gl={{ antialias: false }}
         >
           <Stats />
-          <Room face={face} pupilOffset={offset} headOffset={headOffset} />
+          {filesContent.length > 0 && (
+            <Room
+              gltfFile={filesContent[0].content}
+              faceFile={textureContent[0].content}
+              faceRef={faceRef}
+              pupilOffset={offset}
+              headOffset={headOffset}
+            />
+          )}
         </Canvas>
       </div>
       <div>
         <button
           onClick={() => {
-            setOffset(face?.pupil);
-            setHeadOffset(face?.head.position);
+            openFileSelector();
+          }}
+        >
+          pick gltf file
+        </button>
+        <button
+          onClick={() => {
+            openTextureSelector();
+          }}
+        >
+          pick face texture
+        </button>
+        <button
+          onClick={() => {
+            setOffset(faceRef.current.pupil);
+            setHeadOffset(faceRef.current.head.position);
           }}
         >
           setOffset
         </button>
       </div>
       <div>
+        {devices.map((info) => {
+          return (
+            <button
+              onClick={() => {
+                setDeviceId(info.deviceId);
+              }}
+              key={info.deviceId}
+            >
+              {info.label}
+            </button>
+          );
+        })}
+      </div>
+      <div>
         <Webcam
           audio={false}
           mirrored={true}
           ref={webcamRef}
+          imageSmoothing={false}
+          videoConstraints={{ deviceId: deviceId }}
           style={
             {
               // visibility: "hidden",

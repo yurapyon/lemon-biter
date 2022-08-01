@@ -17,7 +17,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-webcam": "^7.0.1",
-    "three": "^0.142.0"
+    "three": "^0.142.0",
+    "use-file-picker": "^1.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.15",
